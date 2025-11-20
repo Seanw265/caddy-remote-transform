@@ -34,7 +34,7 @@ dist/
 build/
 buildenv_*/
 
-# Temporary test files (moved to examples/ and scripts/)
+# Temporary test files and user-created configs
 test*.json
 test*.sh
 test.Caddyfile

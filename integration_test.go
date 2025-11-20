@@ -45,8 +45,13 @@ func buildCaddyBinary(t *testing.T) string {
 	tmpDir := t.TempDir()
 	binaryPath := filepath.Join(tmpDir, "caddy")
 
-	// Build Caddy with module
-	cmd := exec.Command(xcaddyPath, "build", "--with", "github.com/seanw265/caddy-remote-transform", "--output", binaryPath)
+	// Build Caddy with module (use --replace for local development)
+	// Get the current working directory to use as local path
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatalf("Failed to get working directory: %v", err)
+	}
+	cmd := exec.Command(xcaddyPath, "build", "--with", "github.com/seanw265/caddy-remote-transform", "--replace", fmt.Sprintf("github.com/seanw265/caddy-remote-transform=%s", wd), "--output", binaryPath)
 	cmd.Env = os.Environ()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
@@ -242,13 +247,15 @@ func TestIntegration_BasicPassThrough(t *testing.T) {
 
 	// Create Caddy config
 	config := fmt.Sprintf(`:PORT {
-	dynamic_transform {
-		endpoint %s
-		timeout 1s
-		error_mode pass_through
+	route {
+		dynamic_transform {
+			endpoint %s
+			timeout 1s
+			error_mode pass_through
+		}
+		
+		respond "Request processed successfully!"
 	}
-	
-	respond "Request processed successfully!"
 }`, transformSrv.URL)
 
 	// Start Caddy
@@ -309,13 +316,15 @@ func TestIntegration_RequestBlocking(t *testing.T) {
 
 	// Create Caddy config
 	config := fmt.Sprintf(`:PORT {
-	dynamic_transform {
-		endpoint %s
-		timeout 1s
-		error_mode pass_through
+	route {
+		dynamic_transform {
+			endpoint %s
+			timeout 1s
+			error_mode pass_through
+		}
+		
+		respond "This should not be reached"
 	}
-	
-	respond "This should not be reached"
 }`, transformSrv.URL)
 
 	// Start Caddy
@@ -368,17 +377,19 @@ func TestIntegration_URLRewriting(t *testing.T) {
 
 	// Create Caddy config with route that checks URL
 	config := fmt.Sprintf(`:PORT {
-	dynamic_transform {
-		endpoint %s
-		timeout 1s
-		error_mode pass_through
+	route {
+		dynamic_transform {
+			endpoint %s
+			timeout 1s
+			error_mode pass_through
+		}
+		
+		@internal {
+			path /internal/*
+		}
+		respond @internal "Internal path accessed: {http.request.uri}"
+		respond "Original path: {http.request.uri}"
 	}
-	
-	@internal {
-		path /internal/*
-	}
-	respond @internal "Internal path accessed: {http.request.uri}"
-	respond "Original path: {http.request.uri}"
 }`, transformSrv.URL)
 
 	// Start Caddy
@@ -445,14 +456,16 @@ func TestIntegration_HeaderStripping(t *testing.T) {
 
 	// Create Caddy config with header stripping
 	config := fmt.Sprintf(`:PORT {
-	dynamic_transform {
-		endpoint %s
-		timeout 1s
-		strip_headers X-Secret Authorization
-		error_mode pass_through
+	route {
+		dynamic_transform {
+			endpoint %s
+			timeout 1s
+			strip_headers X-Secret Authorization
+			error_mode pass_through
+		}
+		
+		respond "OK"
 	}
-	
-	respond "OK"
 }`, transformSrv.URL)
 
 	// Start Caddy
@@ -492,13 +505,15 @@ func TestIntegration_ErrorModePassThrough(t *testing.T) {
 
 	// Create Caddy config with pass_through error mode
 	config := fmt.Sprintf(`:PORT {
-	dynamic_transform {
-		endpoint %s
-		timeout 1s
-		error_mode pass_through
+	route {
+		dynamic_transform {
+			endpoint %s
+			timeout 1s
+			error_mode pass_through
+		}
+		
+		respond "Request passed through on error"
 	}
-	
-	respond "Request passed through on error"
 }`, transformSrv.URL)
 
 	// Start Caddy
@@ -538,13 +553,15 @@ func TestIntegration_ErrorModeFailClosed(t *testing.T) {
 
 	// Create Caddy config with fail_closed error mode
 	config := fmt.Sprintf(`:PORT {
-	dynamic_transform {
-		endpoint %s
-		timeout 1s
-		error_mode fail_closed
+	route {
+		dynamic_transform {
+			endpoint %s
+			timeout 1s
+			error_mode fail_closed
+		}
+		
+		respond "This should not be reached"
 	}
-	
-	respond "This should not be reached"
 }`, transformSrv.URL)
 
 	// Start Caddy
@@ -586,13 +603,15 @@ func TestIntegration_Timeout(t *testing.T) {
 
 	// Create Caddy config with short timeout
 	config := fmt.Sprintf(`:PORT {
-	dynamic_transform {
-		endpoint %s
-		timeout 500ms
-		error_mode pass_through
+	route {
+		dynamic_transform {
+			endpoint %s
+			timeout 500ms
+			error_mode pass_through
+		}
+		
+		respond "Request passed through on timeout"
 	}
-	
-	respond "Request passed through on timeout"
 }`, transformSrv.URL)
 
 	// Start Caddy
@@ -628,13 +647,15 @@ func TestIntegration_NetworkFailure(t *testing.T) {
 
 	// Create Caddy config with pass_through error mode
 	config := fmt.Sprintf(`:PORT {
-	dynamic_transform {
-		endpoint %s
-		timeout 500ms
-		error_mode pass_through
+	route {
+		dynamic_transform {
+			endpoint %s
+			timeout 500ms
+			error_mode pass_through
+		}
+		
+		respond "Request passed through on network failure"
 	}
-	
-	respond "Request passed through on network failure"
 }`, nonExistentEndpoint)
 
 	// Start Caddy
@@ -684,15 +705,17 @@ func TestIntegration_ConcurrentRequests(t *testing.T) {
 	defer transformSrv.close()
 
 	// Create Caddy config
-	config := fmt.Sprintf(`:PORT {
-	dynamic_transform {
-		endpoint %s
-		timeout 1s
-		error_mode pass_through
-	}
-	
-	respond "OK"
-}`, transformSrv.URL)
+	config := fmt.Sprintf(`		:PORT {
+			route {
+				dynamic_transform {
+					endpoint %s
+					timeout 1s
+					error_mode pass_through
+				}
+				
+				respond "OK"
+			}
+		}`, transformSrv.URL)
 
 	// Start Caddy
 	caddy := startCaddyServer(t, config)

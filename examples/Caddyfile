@@ -2,37 +2,43 @@
 
 :8080 {
     # Basic configuration
-    dynamic_transform {
-        endpoint http://localhost:9090/transform
-        timeout 1s
-        max_body_bytes 1048576
-        include_body true
-        body_encoding base64
-        error_mode pass_through
+    route {
+        dynamic_transform {
+            endpoint http://localhost:9090/transform
+            timeout 1s
+            max_body_bytes 1048576
+            include_body true
+            body_encoding base64
+            error_mode pass_through
+        }
+        
+        respond "Request processed"
     }
-    
-    respond "Request processed"
 }
 
 # Example with header stripping
 :8081 {
-    dynamic_transform {
-        endpoint http://localhost:9090/transform
-        strip_headers Authorization X-Secret
-        error_mode fail_closed
+    route {
+        dynamic_transform {
+            endpoint http://localhost:9090/transform
+            strip_headers Authorization X-Secret
+            error_mode fail_closed
+        }
+        
+        reverse_proxy http://backend:8080
     }
-    
-    reverse_proxy http://backend:8080
 }
 
 # Example with UTF-8 encoding
 :8082 {
-    dynamic_transform {
-        endpoint http://localhost:9090/transform
-        body_encoding utf8
-        include_body true
+    route {
+        dynamic_transform {
+            endpoint http://localhost:9090/transform
+            body_encoding utf8
+            include_body true
+        }
+        
+        file_server
     }
-    
-    file_server
 }
 

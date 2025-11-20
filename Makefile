@@ -1,4 +1,4 @@
-.PHONY: build test clean run-example xcaddy-build
+.PHONY: build test test-coverage test-integration clean run-example xcaddy-build fmt lint deps verify
 
 # Build the module
 build:
@@ -26,7 +26,7 @@ xcaddy-build:
 		echo "xcaddy not found. Installing..."; \
 		go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest; \
 	fi
-	xcaddy build --with github.com/seanw265/caddy-remote-transform
+	xcaddy build --with github.com/seanw265/caddy-remote-transform --replace github.com/seanw265/caddy-remote-transform=$$(pwd)
 
 # Run the example transform server
 run-example:

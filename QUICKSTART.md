@@ -21,13 +21,15 @@ go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
 make xcaddy-build
 ```
 
-Or manually:
+Or manually (for local development):
 
 ```bash
-xcaddy build --with github.com/seanw265/caddy-remote-transform
+xcaddy build --with github.com/seanw265/caddy-remote-transform --replace github.com/seanw265/caddy-remote-transform=$(pwd)
 ```
 
 This creates a `caddy` binary in the current directory.
+
+**Note**: The `--replace` flag is needed for local development when the module isn't published to GitHub. The Makefile handles this automatically.
 
 ## Quick Test
 
@@ -46,27 +48,72 @@ This starts a test transform server on `:9090` with three endpoints:
 - `POST /block` - Blocks request with 403
 - `POST /rewrite` - Rewrites URL
 
-### Step 2: Create a Test Caddyfile
+### Step 2: Create a Test Configuration
+
+**Option A: JSON Configuration (Recommended)**
+
+Create `test.json`:
+
+```json
+{
+  "apps": {
+    "http": {
+      "servers": {
+        "srv0": {
+          "listen": [":8080"],
+          "routes": [
+            {
+              "handle": [
+                {
+                  "handler": "dynamic_transform",
+                  "endpoint": "http://localhost:9090/transform",
+                  "timeout": "1s",
+                  "error_mode": "pass_through"
+                },
+                {
+                  "handler": "static_response",
+                  "status_code": 200,
+                  "body": "Request processed successfully!"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  }
+}
+```
+
+**Option B: Caddyfile Configuration**
 
 Create `test.Caddyfile`:
 
 ```caddyfile
 :8080 {
-    dynamic_transform {
-        endpoint http://localhost:9090/transform
-        timeout 1s
-        error_mode pass_through
+    route {
+        dynamic_transform {
+            endpoint http://localhost:9090/transform
+            timeout 1s
+            error_mode pass_through
+        }
+        
+        respond "Request processed successfully!"
     }
-    
-    respond "Request processed successfully!"
 }
 ```
+
+**Note**: The `dynamic_transform` directive must be used within a `route` block.
 
 ### Step 3: Run Caddy
 
 In another terminal:
 
 ```bash
+# For JSON config:
+./caddy run --config test.json
+
+# For Caddyfile (if working):
 ./caddy run --config test.Caddyfile
 ```
 

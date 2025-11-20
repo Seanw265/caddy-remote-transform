@@ -27,6 +27,11 @@ cd caddy-middleware
 xcaddy build --with github.com/seanw265/caddy-remote-transform
 ```
 
+For local development (when the module is not published to GitHub), use the `--replace` flag:
+```bash
+xcaddy build --with github.com/seanw265/caddy-remote-transform --replace github.com/seanw265/caddy-remote-transform=$(pwd)
+```
+
 This will create a `caddy` binary with the module included.
 
 ## Configuration
@@ -67,19 +72,23 @@ This will create a `caddy` binary with the module included.
 
 ```caddyfile
 :8080 {
-    dynamic_transform {
-        endpoint https://transform.internal/transform
-        timeout 500ms
-        max_body_bytes 1048576
-        include_body true
-        body_encoding base64
-        strip_headers X-Secret Authorization
-        error_mode pass_through
+    route {
+        dynamic_transform {
+            endpoint https://transform.internal/transform
+            timeout 500ms
+            max_body_bytes 1048576
+            include_body true
+            body_encoding base64
+            strip_headers X-Secret Authorization
+            error_mode pass_through
+        }
+        
+        respond "Hello, World!"
     }
-    
-    respond "Hello, World!"
 }
 ```
+
+**Note**: The `dynamic_transform` directive must be used within a `route` block (or `handle` block with the `order` global option).
 
 ## Configuration Options
 
